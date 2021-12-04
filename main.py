@@ -7,9 +7,13 @@ from matplotlib.patches import Rectangle, FancyArrowPatch
 import matplotlib.pyplot as plt
 
 
+# Settings
+# st.set_option('deprecation.showPyplotGlobalUse', False)
+
+
 # Adress of the API server :
-HOST = 'http://127.0.0.1:8000'     # developement on local server
-# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+# HOST = 'http://127.0.0.1:8000'     # developement on local server
+HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
 
 # Functions
@@ -48,16 +52,63 @@ def fetch_data(id_client : int):
 	one_client_pandas = pd.read_json(one_client_json, orient='index')    # format: pandas.DataFrame
 	return one_client_pandas
 	
-	
-# Do not use @st.cache here.
-def plot_kde(feature):
+
+# @st.cache
+def load_data(filename): 
+	"""Loads the database (as a pandas dataframe).
+	The pandas dataframe is stored as a compressed and serialized file.
+	Args :
+	- file name (string).
+	Returns :
+	- pandas dataframe.
+	Réécrire cette docstring car elle fait autre chose.
+	"""
+	return joblib.load('./src/'+ filename) 
+
+X_split_valid = load_data('X_split_valid.joblib')   # dataset utilisé pour tracer les feature importances globales
+y_split_valid = load_data('y_split_valid.joblib')
+df_test_sample = load_data('df_test_sample.joblib')   # dataset des clients à tester
+list_categorical_features = load_data('list_categorical_features.joblib')
+dict_categorical_features = load_data('dict_categorical_features.joblib')
+
+
+
+def kdeplot_in_common(feature, bw_method=0.4):
+	"""Horizontal Barplot of a qualitative feature. Common to all clients.
+	Args :
+	- feature (string).
+	Returns :
+	- matplotlib figure.
+	"""
+	# Extraction of the feature's data
+	df = pd.DataFrame({feature:X_split_valid[feature], 'y_true':y_split_valid})
+	ser_true0 = df.loc[df['y_true'] == 0, feature]
+	ser_true1 = df.loc[df['y_true'] == 1, feature]
+	xmin = df[feature].min()
+	xmax = df[feature].max()
+	# Plotting
+	plt.style.use('seaborn')
+	fig = plt.figure(edgecolor='black', linewidth=4, dpi=100)
+	ser_true0.plot(kind='kde', c='g', label='Non-defaulting clients', bw_method=bw_method, ind=None)
+	ser_true1.plot(kind='kde', c='r', label='Defaulting clients', bw_method=bw_method, ind=None)
+	fig.suptitle(f'Distribution of {feature} based on clients true class', y=0.92)
+	plt.legend()
+	plt.xlabel(feature)
+	plt.ylabel('Probability density')
+	plt.xlim(xmin, xmax)
+	return fig
+
+
+# Do not use @st.cache here. 
+def kdeplot(feature):
 	"""Plots a KDE of the quantitative feature. 
 	Args :
 	- feature (string).
 	Returns :
 	- matplotlib plot via st.pyplot.
 	"""
-	figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
+	# figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
+	figure = kdeplot_in_common(feature)
 	y_max = plt.ylim()[1]
 	x_client = one_client_pandas[feature].iloc[0]
 	if str(x_client) == "nan":
@@ -69,8 +120,43 @@ def plot_kde(feature):
 	st.pyplot(figure)   
 	st.caption(feature)
 	
+
+# Do not use @st.cache here. Calculation will never end.
+def barplot_in_common(feature):
+	"""Horizontal Barplot of a qualitative feature. Common to all clients.
+	Args :
+	- feature (string).
+	Returns :
+	- matplotlib figure.
+	"""
+	# Extraction of the feature's data
+	df_feature = pd.DataFrame({feature:X_split_valid[feature], 'y_true':y_split_valid})
+	# Probability of default for each value of the feature
+	proba_for_each_value = []
+	cardinality = len(dict_categorical_features[feature])
+	for index in range(cardinality):  # on parcourt toutes les modalités de la feature
+		df_feature_modalite = df_feature[df_feature[feature] == index]
+		proba_default = df_feature_modalite['y_true'].sum() / len(df_feature_modalite)
+		proba_for_each_value.append(proba_default)
+	df_modalites = pd.DataFrame()
+	df_modalites['modalites'] = dict_categorical_features[feature]
+	df_modalites['probas'] = proba_for_each_value
+	df_modalites.sort_values(by='probas', inplace=True)
+	# Plotting
+	plt.style.use('seaborn')
+	fig = plt.figure(edgecolor='black', linewidth=4)
+	plt.ylim(-0.6,cardinality-0.4)
+	plt.barh(y=range(cardinality), width=df_modalites['probas'], color='r')
+	plt.barh(y=range(cardinality), left=df_modalites['probas'], width=(1-df_modalites['probas']), color='limegreen', )
+	plt.xlabel('Probability of default')
+	plt.ylabel(feature)
+	fig.suptitle(f'Probability of default as a function of {feature} based on clients true class', y=0.92)
+	size = 6 if cardinality > 30 else None
+	plt.yticks(ticks=range(cardinality), labels=df_modalites['modalites'], size=size)
+	return fig
 	
-# Do not use @st.cache here.
+	
+# Do not use @st.cache here (too many bugs).
 def barplot(feature):
 	"""Barplot of a qualitative feature. 
 	Args :
@@ -78,15 +164,26 @@ def barplot(feature):
 	Returns :
 	- matplotlib plot via st.pyplot.
 	"""
-	figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
+	# figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
+	figure = barplot_in_common(feature)
 	x_client = one_client_pandas[feature].iloc[0]
-	plt.axhline(y=optimum_threshold(), xmin=-1e10, xmax=1e10, c='darkorange', ls='dashed', lw=1)
-	plt.axvline(x=x_client, ymin=-1e10, ymax=1e10, c='k', ls='dashed', lw=1)
-	plt.annotate(text=f" Client {id_client}\n  Value : {x_client} (to be coded)", xy=(0,0.5)) 
+	plt.axvline(x=optimum_threshold(), ymin=-1e10, ymax=1e10, c='darkorange', ls='dashed', lw=1)   # line for the optimum_threshold
+	plt.text(s=f" Client {id_client}: {dict_categorical_features[feature][x_client]} ", x=0.5, y=plt.ylim()[1]*0.67) 
 	st.pyplot(figure)   
 	st.caption(feature)	
 	
-	
+def plot_selector(feature):
+	"""Chooses between a KDE plot (for quantitative features) and a bar plot (for qualitative features)
+	Args :
+	- feature (string).
+	Returns :
+	- matplotlib plot via st.pyplot of the called function.	
+	"""
+	if feature in list_categorical_features:
+		barplot(feature)
+	else:
+		kdeplot(feature)
+
 
 # Implementation of the dashboard
 st.title('Home Credit Default Risk')
@@ -101,17 +198,18 @@ st.write("optimum_threshold :", optimum_threshold())
 # ID client
 "---------------------------"
 st.header('Client ID')
-id_client = st.text_input("Enter client ID", value="216030")
-st.caption("Examples of clients predicted negative (no default) : 216030")
-st.caption("Examples of clients predicted positive (credit default) : 215699") 
+id_client = st.text_input("Enter client ID", value="324806")
+st.caption("Examples of clients predicted negative (no default) : 324806")
+st.caption("Examples of clients predicted positive (credit default) : 318063") 
 
 
 # Données client
 "---------------------------"  
 st.header('Client data')
-one_client_pandas = fetch_data(id_client)
+# one_client_pandas = fetch_data(id_client)
+one_client_pandas = df_test_sample[df_test_sample.index == int(id_client)]
 with st.expander("See data", expanded=False):
-	st.dataframe(one_client_pandas.T)
+	st.dataframe(one_client_pandas.T) 
 
 
 # Result of credit application
@@ -121,7 +219,7 @@ probability = fetch_proba_default(id_client)
 if probability < optimum_threshold(): 
 	st.success(f"  \n __CREDIT ACCEPTED__  \n  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (lower than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
 else:
-	st.error(f"__CREDIT REFUSED__  \nThe probability of default of the applied credit is {round(100*probability,1)}% (higher than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
+	st.error(f"__CREDIT REFUSED__  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (higher than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
 # Rectangle Gauge
 plt.style.use('default')
 fig, ax = plt.subplots(figsize=(10,1))
@@ -142,9 +240,7 @@ st.pyplot(fig)
 st.header('Ranking of the client compared to other clients (KDE proba défaut, version data scientist)')
 figure_kde_distribution_proba_default_for_datascientist = joblib.load('./src/figure_kde_distribution_proba_default_for_datascientist.joblib') 
 plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,3), arrowprops=dict(facecolor='k', arrowstyle='simple'))
-st.pyplot(figure_kde_distribution_proba_default_for_datascientist)   
-
-
+st.pyplot(figure_kde_distribution_proba_default_for_datascientist)  
 
 "---------------------------" 
 st.header('Ranking of the client compared to other clients  (histogramme proba défaut, version data scientist)')
@@ -166,14 +262,24 @@ with st.expander("See definitions of the features", expanded=False):
 
 # Position du client vs les autres
 "---------------------------" 
-st.header('Positionnement du client par rapports aux autres clients dans les principales features')
+st.header('Positioning of the client with comparison to other clients in the main features')
 left_column, middle_column, right_column = st.columns([1, 1, 1])
 with left_column:
-	plot_kde('EXT_SOURCE_2') 
-	plot_kde('PAYMENT_RATE')
+	kdeplot('EXT_SOURCE_2') 
+	kdeplot('PAYMENT_RATE')
 with middle_column:
-	plot_kde('EXT_SOURCE_3')
+	kdeplot('EXT_SOURCE_3') 
 	barplot('ORGANIZATION_TYPE')
 with right_column:
-	plot_kde('EXT_SOURCE_1')
-	plot_kde('AMT_ANNUITY')
+	kdeplot('EXT_SOURCE_1')
+	kdeplot('AMT_ANNUITY')
+
+
+# Position du client vs les autres
+"---------------------------" 
+st.header('Positioning of the client with comparison to other clients (choice of features)')
+picked = st.selectbox('Choose a feature', options=sorted(list(df_test_sample.columns)))
+plot_selector(picked)
+st.caption("Rajouter ici la définition de la feature")
+
+
