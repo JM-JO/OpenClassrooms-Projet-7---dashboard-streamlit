@@ -101,22 +101,24 @@ def kdeplot_in_common(feature, bw_method=0.4):
 
 # Do not use @st.cache here. 
 def kdeplot(feature):
-	"""Plots a KDE of the quantitative feature. 
+	"""Plots a KDE of the quantitative feature.  
 	Args :
 	- feature (string).
 	Returns :
 	- matplotlib plot via st.pyplot.
 	"""
-	# figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
-	figure = kdeplot_in_common(feature)
+	if feature in ['EXT_SOURCE_2', 'PAYMENT_RATE', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
+		figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
+	else :
+		figure = kdeplot_in_common(feature)
 	y_max = plt.ylim()[1]
 	x_client = one_client_pandas[feature].iloc[0]
 	if str(x_client) == "nan":
 		x_center = (plt.xlim()[1] + plt.xlim()[0]) / 2
-		plt.annotate(text=f" Client {id_client}\n  data not available", xy=(x_center,0), xytext=(x_center,y_max/5))
+		plt.annotate(text=f" Client {id_client}\n  data not available", xy=(x_center,0), xytext=(x_center,y_max*0.9))
 	else:
 		plt.axvline(x=x_client, ymin=-1e10, ymax=1e10, c='k', ls='dashed', lw=2)
-		plt.annotate(text=f" Client {id_client}\n  {round(x_client,4)}", xy=(x_client,y_max/5))
+		plt.annotate(text=f" Client {id_client}\n  {round(x_client,4)}", xy=(x_client,y_max*0.9))
 	st.pyplot(figure)   
 	st.caption(feature)
 	
@@ -164,8 +166,10 @@ def barplot(feature):
 	Returns :
 	- matplotlib plot via st.pyplot.
 	"""
-	# figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
-	figure = barplot_in_common(feature)
+	if feature == 'ORGANIZATION_TYPE':
+		figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
+	else :
+		figure = barplot_in_common(feature)
 	x_client = one_client_pandas[feature].iloc[0]
 	plt.axvline(x=optimum_threshold(), ymin=-1e10, ymax=1e10, c='darkorange', ls='dashed', lw=1)   # line for the optimum_threshold
 	plt.text(s=f" Client {id_client}: {dict_categorical_features[feature][x_client]} ", x=0.5, y=plt.ylim()[1]*0.67) 
