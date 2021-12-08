@@ -16,8 +16,8 @@ from random import randint
 DEBUG = True
 
 # Adress of the API server :
-HOST = 'http://127.0.0.1:8000'     # developement on local server
-# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+# HOST = 'http://127.0.0.1:8000'     # developement on local server
+HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
 
 
