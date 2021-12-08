@@ -16,8 +16,8 @@ from random import randint
 DEBUG = True
 
 # Adress of the API server :
-# HOST = 'http://127.0.0.1:8000'     # developement on local server
-HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+HOST = 'http://127.0.0.1:8000'     # developement on local server
+# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
 
 
@@ -45,17 +45,17 @@ def fetch_proba_default(id_client : int):
 	return eval(requests.post(HOST + '/predict_id_client/' + str(id_client)).content)["probability"]
 
 
-def rectangle_gauge(client_probability):
-	"""Draws a gauge for the result of credit application, and an arrow at the client_client_probability.
+def rectangle_gauge(id, client_probability):
+	"""Draws a gauge for the result of credit application, and an arrow at the client probability of default.
 	Args :
+	- id (int) : client ID.
 	- client_probability (float).
 	Returns :
 	- draws a matplotlib figure.
-	
 	"""
 	plt.style.use('default')
 	fig, ax = plt.subplots(figsize=(10,1))
-	fig.suptitle("client_probability of credit default (%)", size=15, y=1.1)
+	fig.suptitle(f"Client {id}: probability of credit default (%)", size=15, y=1.1)
 	ax.add_patch(Rectangle((0,0), width=optimum_threshold()*100, height=1, color=(0.5,0.9,0.5,0.5)))   
 	ax.add_patch(Rectangle((optimum_threshold()*100,0), width=100-optimum_threshold()*100, height=1, color=(1,0,0,0.5)))   
 	ax.plot((optimum_threshold()*100, optimum_threshold()*100), (0,1), color='#FF8C00', ls=(0,(0.5,0.5)), lw=6)
@@ -121,7 +121,7 @@ def kdeplot_in_common(feature, bw_method=0.4):
 	fig = plt.figure(edgecolor='black', linewidth=4, dpi=100)
 	ser_true0.plot(kind='kde', c='g', label='Non-defaulting clients', bw_method=bw_method, ind=None)
 	ser_true1.plot(kind='kde', c='r', label='Defaulting clients', bw_method=bw_method, ind=None)
-	fig.suptitle(f'Distribution of {feature} based on clients true class', y=0.92)
+	fig.suptitle(f'Observed distribution of {feature} based on clients true class', y=0.92)
 	plt.legend()
 	plt.xlabel(feature)
 	plt.ylabel('Probability density')
@@ -161,15 +161,15 @@ def barplot_in_common(feature):
 	"""
 	# Extraction of the feature's data
 	df_feature = pd.DataFrame({feature:X_split_valid[feature], 'y_true':y_split_valid})
-	# Probability of default for each value of the feature
+	# Observed probability of default for each value of the feature
 	proba_for_each_value = []
-	cardinality = len(dict_categorical_features[feature])
+	cardinality = len(dict_categorical_features[feature]) if feature != 'CODE_GENDER' else 2
 	for index in range(cardinality):  # on parcourt toutes les modalités de la feature
 		df_feature_modalite = df_feature[df_feature[feature] == index]
 		proba_default = df_feature_modalite['y_true'].sum() / len(df_feature_modalite)
 		proba_for_each_value.append(proba_default)
 	df_modalites = pd.DataFrame()
-	df_modalites['modalites'] = dict_categorical_features[feature]
+	df_modalites['modalites'] = dict_categorical_features[feature] if feature != 'CODE_GENDER' else ['Female', 'Male']
 	df_modalites['probas'] = proba_for_each_value
 	df_modalites.sort_values(by='probas', inplace=True)
 	# Plotting
@@ -178,9 +178,9 @@ def barplot_in_common(feature):
 	plt.ylim(-0.6,cardinality-0.4)
 	plt.barh(y=range(cardinality), width=df_modalites['probas'], color='r')
 	plt.barh(y=range(cardinality), left=df_modalites['probas'], width=(1-df_modalites['probas']), color='limegreen', )
-	plt.xlabel('Probability of default')
+	plt.xlabel('Observed probability of default')
 	plt.ylabel(feature)
-	fig.suptitle(f'Probability of default as a function of {feature} based on clients true class', y=0.92)
+	fig.suptitle(f'Observed probability of default as a function of {feature} based on clients true class', y=0.92)
 	size = 6 if cardinality > 30 else None
 	plt.yticks(ticks=range(cardinality), labels=df_modalites['modalites'], size=size)
 	return fig
@@ -205,7 +205,7 @@ def barplot(feature):
 	
 
 def contourplot_in_common(feature1, feature2):
-    """Contour plot for the probability of default as a function of 2 features. Common to all clients.
+    """Contour plot for the observed probability of default as a function of 2 features. Common to all clients.
     Args :
     - feature1 (string).
     - feature2 (string).
@@ -224,7 +224,7 @@ def contourplot_in_common(feature1, feature2):
     ser1 = df[feature1].sort_values().copy()
     ser2 = df[feature2].sort_values().copy()
     
-    # Filling of the grid
+    # Filling the grid
     grid_proba_default = np.full((n_bins, n_bins), -1.0)
     ser_true0 = (df['y_true'] == 0)
     ser_true1 = (df['y_true'] == 1)
@@ -252,12 +252,12 @@ def contourplot_in_common(feature1, feature2):
     plt.colorbar(shrink=0.8)
     plt.xlabel(feature1)
     plt.ylabel(feature2)
-    fig.suptitle(f'Probability of default as a function of {feature1} and {feature2}', y=0.92)
+    fig.suptitle(f'Observed probability of default as a function of {feature1} and {feature2}', y=0.92)
     return fig
 
 
 def contourplot(feature1, feature2):
-	"""Contour plot for the probability of default as a function of 2 features. 
+	"""Contour plot for the observed probability of default as a function of 2 features. 
 	Args :
 	- feature1 (string).
 	- feature2 (string).
@@ -298,7 +298,7 @@ def lineplot_in_common(feature):
 						+ [int(bin_size*(n+0.5)) for n in range(n_bins) ] + [int(bin_size*(n+0.75)) for n in range(n_bins) ]
 	index_bin_start = sorted(index_bin_start)
 
-	# probability of default for every bins
+	# Observed probability of default for every bins
 	proba_default = []
 	feature_value_start = []
 	for i in index_bin_start[2:-2]:
@@ -313,11 +313,14 @@ def lineplot_in_common(feature):
 	# Plotting
 	plt.style.use('seaborn')
 	fig = plt.figure(edgecolor='black', linewidth=4)
-	plt.plot(feature_value_start, proba_default)
-	plt.ylabel('Probability of default')
+	plt.plot(feature_value_start, proba_default, color='k')
+	ylim_high = plt.ylim()[1]
+	plt.fill_between(x=feature_value_start, y1=proba_default, y2=0, color='r')
+	plt.fill_between(x=feature_value_start, y1=proba_default, y2=1, color='limegreen')
+	plt.ylabel('Observed probability of default')
 	plt.xlabel(feature)
-	fig.suptitle(f'Probability of default as a function of {feature}', y=0.92)
-	plt.ylim(0,plt.ylim()[1])
+	fig.suptitle(f'Observed probability of default as a function of {feature}', y=0.92)
+	plt.ylim(0,max(ylim_high, 0.3))
 	return fig
 
 
@@ -329,7 +332,7 @@ def lineplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./src/figure_lineplot_' + feature + '_for_bankclerk.joblib') 
+		figure = joblib.load('./src/figure_lineplot_' + feature + '_for_bankclerk.joblib')
 	else :
 		figure = lineplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -345,18 +348,18 @@ def lineplot(feature):
 	st.caption(feature)
 	
 	
-def plot_selector(feature, who='DS'):
+def plot_selector(feature, dashboard='Advanced'):
 	"""Chooses between a KDE plot (for quantitative features) and a bar plot (for qualitative features)
 	Args :
 	- feature (string).
-	- who (string) : for whom the plot is drawn : DataScientist ('DS') or BankClerk ('BC').
+	- dashboard (string) : 'Advanced' or 'Basic'.
 	Returns :
 	- matplotlib plot via st.pyplot of the called function.	
 	"""
 	if feature in list_categorical_features:
 		barplot(feature)
 	else:
-		if who == 'DS':
+		if dashboard == 'Advanced':
 			kdeplot(feature)
 		else :
 			lineplot(feature)
@@ -445,7 +448,7 @@ if probability < optimum_threshold():
 	st.success(f"  \n __CREDIT ACCEPTED__  \n  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (lower than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
 else:
 	st.error(f"__CREDIT REFUSED__  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (higher than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
-rectangle_gauge(probability)
+rectangle_gauge(id_client, probability)
 
 
 if dashboard_choice == 'Advanced':
@@ -477,29 +480,32 @@ with st.expander("See definitions of the features", expanded=False):
 if dashboard_choice == 'Advanced':
 	st.subheader('By a SHAP summary plot')
 	st.pyplot(joblib.load('./src/figure_summary_plot_shap_for_datascientist.joblib'))
-	st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the probability of default. '
+	st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
 	'The red zones correspond to larger values for the features.  \n'
 	'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
 	'As can be seen, this plot also informs on the distribution of the SHAP values for each feature.')
 
 
 
-# Positioning of the client with comparison to other clients in the main features
+# Positioning of the client with comparison to other clients in the 6 main features
 "---------------------------" 
 st.header('Positioning of the client with comparison to other clients in the 6 main features')
 
 # Basic dashboard
-st.subheader('Probability of default as a function of a feature')
+st.subheader('Observed probability of default as a function of a feature')
 left_column, middle_column, right_column = st.columns([1, 1, 1])
 with left_column:
-	plot_selector('EXT_SOURCE_1', who='BC') 
-	plot_selector('AMT_ANNUITY', who='BC')
+	plot_selector('EXT_SOURCE_1', dashboard='Basic') 
 with middle_column:
-	plot_selector('EXT_SOURCE_2', who='BC') 
-	plot_selector('ORGANIZATION_TYPE', who='BC')	
+	plot_selector('EXT_SOURCE_2', dashboard='Basic') 
 with right_column:
-	plot_selector('EXT_SOURCE_3', who='BC')
-	plot_selector('CODE_GENDER', who='BC')
+	plot_selector('EXT_SOURCE_3', dashboard='Basic')
+with left_column:
+	plot_selector('AMT_ANNUITY', dashboard='Basic')
+with middle_column:
+	plot_selector('ORGANIZATION_TYPE', dashboard='Basic')	
+with right_column:
+	plot_selector('CODE_GENDER', dashboard='Basic')
 	
 if dashboard_choice == 'Advanced':
 	st.subheader('Distribution of a feature, based on the clients true class')
@@ -519,7 +525,7 @@ sorted_options = sorted(list(df_test_sample.columns))
 selected_feature = st.selectbox(f'Choose a feature among {len(sorted_options)}', options=sorted_options, index=sorted_options.index('OCCUPATION_TYPE'))
 st.caption("Rajouter ici la définition de la feature")
 
-plot_selector(selected_feature, who='BC')
+plot_selector(selected_feature, dashboard='Basic')
 
 if dashboard_choice == 'Advanced':
 	plot_selector(selected_feature)
