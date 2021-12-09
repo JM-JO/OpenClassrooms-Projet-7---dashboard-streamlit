@@ -19,7 +19,7 @@ DEBUG = True
 # HOST = 'http://127.0.0.1:8000'     # developement on local server
 HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
-
+df_clients = joblib.load('./resources/df_test_sample.joblib')
 
 # Functions #########################################################################
 
@@ -31,18 +31,20 @@ def optimum_threshold():
 	Returns :
 	- float.
 	"""
-	return round(float(requests.post(HOST + '/optimum_threshold').content),3)
+	return round(float(requests.get(HOST + '/optimum_threshold').content),3)
 	
 	
 @st.cache
 def fetch_proba_default(id_client : int):
-	"""Fetches the probability of default of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- probability of default (float).
-	"""
-	return eval(requests.post(HOST + '/predict_id_client/' + str(id_client)).content)["probability"]
+    """Fetches the probability of default of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - probability of default (float).
+    """
+    json_client = df_test_sample.loc[int(id_client)].to_json()
+    response = requests.get(HOST + '/predict', data=json_client).json()
+    return response["probability"]
 
 
 def rectangle_gauge(id, client_probability):
@@ -69,28 +71,27 @@ def rectangle_gauge(id, client_probability):
 
 @st.cache
 def fetch_data(id_client : int):
-	"""Fetches the data of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- pandas dataframe with a single line.
-	"""
-	one_client_json = eval(requests.post(HOST + '/fetch_data_id_client/' + str(id_client)).content)
-	one_client_pandas = pd.read_json(one_client_json, orient='index')    # format: pandas.DataFrame
-	return one_client_pandas
+    """Fetches the data of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - pandas dataframe with a single line.
+    """
+    return df_test_sample.loc[int(id_client)]
 	
 	
 @st.cache
 def fetch_shap(id_client : int):
-	"""Fetches the SHAP values of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- pandas dataframe with 2 columns : features, SHAP values.
-	"""
-	shap_json = eval(requests.post(HOST + '/fetch_shap_id_client/' + str(id_client)).content)
-	df_shap = pd.read_json(shap_json, orient='index')    # format: pandas.DataFrame
-	return df_shap
+    """Fetches the SHAP values of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - pandas dataframe with 2 columns : features, SHAP values.
+    """
+    json_client = df_test_sample.loc[int(id_client)].to_json()
+    shap_json = requests.get(HOST + '/shap', data=json_client).json()
+    df_shap = pd.read_json(shap_json, orient='index')    # format: pandas.DataFrame
+    return df_shap
 	
 
 def load_data(filename): 
@@ -471,7 +472,7 @@ if dashboard_choice == 'Advanced':
 st.header('Global Feature Importance:')
 st.subheader('By the Feature Permutation method')
 figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib')
-st.pyplot(figure_features_permutation_importances_for_datascientist)  
+st.pyplot(figure_features_permutation_importances_for_datascientist)
 st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
 with st.expander("See definitions of the features", expanded=False):
 	pass   # to be completed   # en fait ce serait mieux que les définitions soient passées par un graphe plotly
