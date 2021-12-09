@@ -19,7 +19,7 @@ DEBUG = True
 # HOST = 'http://127.0.0.1:8000'     # developement on local server
 HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
-
+df_clients = joblib.load('./resources/df_test_sample.joblib')
 
 # Functions #########################################################################
 
@@ -31,18 +31,20 @@ def optimum_threshold():
 	Returns :
 	- float.
 	"""
-	return round(float(requests.post(HOST + '/optimum_threshold').content),3)
+	return round(float(requests.get(HOST + '/optimum_threshold').content),3)
 	
 	
 @st.cache
 def fetch_proba_default(id_client : int):
-	"""Fetches the probability of default of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- probability of default (float).
-	"""
-	return eval(requests.post(HOST + '/predict_id_client/' + str(id_client)).content)["probability"]
+    """Fetches the probability of default of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - probability of default (float).
+    """
+    json_client = df_test_sample.loc[int(id_client)].to_json()
+    response = requests.get(HOST + '/predict', data=json_client).json()
+    return response["probability"]
 
 
 def rectangle_gauge(id, client_probability):
@@ -69,38 +71,37 @@ def rectangle_gauge(id, client_probability):
 
 @st.cache
 def fetch_data(id_client : int):
-	"""Fetches the data of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- pandas dataframe with a single line.
-	"""
-	one_client_json = eval(requests.post(HOST + '/fetch_data_id_client/' + str(id_client)).content)
-	one_client_pandas = pd.read_json(one_client_json, orient='index')    # format: pandas.DataFrame
-	return one_client_pandas
+    """Fetches the data of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - pandas dataframe with a single line.
+    """
+    return df_test_sample.loc[int(id_client)]
 	
 	
 @st.cache
 def fetch_shap(id_client : int):
-	"""Fetches the SHAP values of a client on the API server.
-	Args : 
-	- id_client (int).
-	Returns :
-	- pandas dataframe with 2 columns : features, SHAP values.
-	"""
-	shap_json = eval(requests.post(HOST + '/fetch_shap_id_client/' + str(id_client)).content)
-	df_shap = pd.read_json(shap_json, orient='index')    # format: pandas.DataFrame
-	return df_shap
+    """Fetches the SHAP values of a client on the API server.
+    Args :
+    - id_client (int).
+    Returns :
+    - pandas dataframe with 2 columns : features, SHAP values.
+    """
+    json_client = df_test_sample.loc[int(id_client)].to_json()
+    shap_json = requests.get(HOST + '/shap', data=json_client).json()
+    df_shap = pd.read_json(shap_json, orient='index')    # format: pandas.DataFrame
+    return df_shap
 	
 
 def load_data(filename): 
-	"""Loads serialized data from the src directory.
+	"""Loads serialized data from the resources directory.
 	Args :
 	- file name (string).
 	Returns :
 	- unserialized data.
 	"""
-	return joblib.load('./src/'+ filename + '.joblib') 
+	return joblib.load('./resources/'+ filename + '.joblib')
 
 
 def kdeplot_in_common(feature, bw_method=0.4):
@@ -137,7 +138,7 @@ def kdeplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
+		figure = joblib.load('./resources/figure_kde_distribution_' + feature + '_for_datascientist.joblib')
 	else :
 		figure = kdeplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -194,7 +195,7 @@ def barplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['ORGANIZATION_TYPE', 'CODE_GENDER']:
-		figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
+		figure = joblib.load('./resources/figure_barplot_' + feature + '_for_datascientist.joblib')
 	else :
 		figure = barplot_in_common(feature)
 	x_client = one_client_pandas[feature].iloc[0]
@@ -332,7 +333,7 @@ def lineplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./src/figure_lineplot_' + feature + '_for_bankclerk.joblib')
+		figure = joblib.load('./resources/figure_lineplot_' + feature + '_for_bankclerk.joblib')
 	else :
 		figure = lineplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -456,11 +457,11 @@ if dashboard_choice == 'Advanced':
 	"---------------------------" 
 	st.header('Ranking of the client compared to other clients')
 
-	figure_kde_distribution_proba_default_for_datascientist = joblib.load('./src/figure_kde_distribution_proba_default_for_datascientist.joblib') 
+	figure_kde_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_kde_distribution_proba_default_for_datascientist.joblib')
 	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,3), arrowprops=dict(facecolor='k', arrowstyle='simple'))
 	st.pyplot(figure_kde_distribution_proba_default_for_datascientist)  
 
-	figure_hist_distribution_proba_default_for_datascientist = joblib.load('./src/figure_hist_distribution_proba_default_for_datascientist.joblib') 
+	figure_hist_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_hist_distribution_proba_default_for_datascientist.joblib')
 	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,1000), arrowprops=dict(facecolor='k', arrowstyle='simple'))
 	st.pyplot(figure_hist_distribution_proba_default_for_datascientist)  
 
@@ -470,8 +471,8 @@ if dashboard_choice == 'Advanced':
 # By Feature permutation
 st.header('Global Feature Importance:')
 st.subheader('By the Feature Permutation method')
-figure_features_permutation_importances_for_datascientist = joblib.load('./src/figure_features_permutation_importances_for_datascientist.joblib') 
-st.pyplot(figure_features_permutation_importances_for_datascientist)  
+figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib')
+st.pyplot(figure_features_permutation_importances_for_datascientist)
 st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
 with st.expander("See definitions of the features", expanded=False):
 	pass   # to be completed   # en fait ce serait mieux que les définitions soient passées par un graphe plotly
@@ -479,7 +480,7 @@ with st.expander("See definitions of the features", expanded=False):
 # By SHAP	
 if dashboard_choice == 'Advanced':
 	st.subheader('By a SHAP summary plot')
-	st.pyplot(joblib.load('./src/figure_summary_plot_shap_for_datascientist.joblib'))
+	st.pyplot(joblib.load('./resources/figure_summary_plot_shap_for_datascientist.joblib'))
 	st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
 	'The red zones correspond to larger values for the features.  \n'
 	'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
