@@ -94,13 +94,13 @@ def fetch_shap(id_client : int):
 	
 
 def load_data(filename): 
-	"""Loads serialized data from the src directory.
+	"""Loads serialized data from the resources directory.
 	Args :
 	- file name (string).
 	Returns :
 	- unserialized data.
 	"""
-	return joblib.load('./src/'+ filename + '.joblib') 
+	return joblib.load('./resources/'+ filename + '.joblib')
 
 
 def kdeplot_in_common(feature, bw_method=0.4):
@@ -137,7 +137,7 @@ def kdeplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./src/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
+		figure = joblib.load('./resources/figure_kde_distribution_' + feature + '_for_datascientist.joblib')
 	else :
 		figure = kdeplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -194,7 +194,7 @@ def barplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['ORGANIZATION_TYPE', 'CODE_GENDER']:
-		figure = joblib.load('./src/figure_barplot_' + feature + '_for_datascientist.joblib') 
+		figure = joblib.load('./resources/figure_barplot_' + feature + '_for_datascientist.joblib')
 	else :
 		figure = barplot_in_common(feature)
 	x_client = one_client_pandas[feature].iloc[0]
@@ -332,7 +332,7 @@ def lineplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./src/figure_lineplot_' + feature + '_for_bankclerk.joblib')
+		figure = joblib.load('./resources/figure_lineplot_' + feature + '_for_bankclerk.joblib')
 	else :
 		figure = lineplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -456,11 +456,11 @@ if dashboard_choice == 'Advanced':
 	"---------------------------" 
 	st.header('Ranking of the client compared to other clients')
 
-	figure_kde_distribution_proba_default_for_datascientist = joblib.load('./src/figure_kde_distribution_proba_default_for_datascientist.joblib') 
+	figure_kde_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_kde_distribution_proba_default_for_datascientist.joblib')
 	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,3), arrowprops=dict(facecolor='k', arrowstyle='simple'))
 	st.pyplot(figure_kde_distribution_proba_default_for_datascientist)  
 
-	figure_hist_distribution_proba_default_for_datascientist = joblib.load('./src/figure_hist_distribution_proba_default_for_datascientist.joblib') 
+	figure_hist_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_hist_distribution_proba_default_for_datascientist.joblib')
 	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,1000), arrowprops=dict(facecolor='k', arrowstyle='simple'))
 	st.pyplot(figure_hist_distribution_proba_default_for_datascientist)  
 
@@ -470,7 +470,7 @@ if dashboard_choice == 'Advanced':
 # By Feature permutation
 st.header('Global Feature Importance:')
 st.subheader('By the Feature Permutation method')
-figure_features_permutation_importances_for_datascientist = joblib.load('./src/figure_features_permutation_importances_for_datascientist.joblib') 
+figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib')
 st.pyplot(figure_features_permutation_importances_for_datascientist)  
 st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
 with st.expander("See definitions of the features", expanded=False):
@@ -479,7 +479,7 @@ with st.expander("See definitions of the features", expanded=False):
 # By SHAP	
 if dashboard_choice == 'Advanced':
 	st.subheader('By a SHAP summary plot')
-	st.pyplot(joblib.load('./src/figure_summary_plot_shap_for_datascientist.joblib'))
+	st.pyplot(joblib.load('./resources/figure_summary_plot_shap_for_datascientist.joblib'))
 	st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
 	'The red zones correspond to larger values for the features.  \n'
 	'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
