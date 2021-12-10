@@ -9,6 +9,7 @@ from matplotlib.patches import Rectangle, FancyArrowPatch
 from matplotlib.cm import RdYlGn
 from PIL import Image
 from random import randint
+from dataprep.eda import create_report
 
 
 
@@ -16,35 +17,37 @@ from random import randint
 DEBUG = True
 
 # Adress of the API server :
-# HOST = 'http://127.0.0.1:8000'     # developement on local server
-HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+HOST = 'http://127.0.0.1:8000'     # developement on local server
+# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
-df_clients = joblib.load('./resources/df_test_sample.joblib')
+
 
 # Functions #########################################################################
 
 @st.cache
 def optimum_threshold():
-	"""Fetches the optimum threshold of the buisness cost function on the API server.
+	"""Gets the optimum threshold of the buisness cost function on the API server.
 	Args :
 	- None.
 	Returns :
-	- float.
+	- float between 0 and 1.
 	"""
-	return round(float(requests.get(HOST + '/optimum_threshold').content),3)
+	response = requests.get(HOST + '/optimum_threshold')
+	return round(float(response.content),3)
 	
 	
 @st.cache
-def fetch_proba_default(id_client : int):
-    """Fetches the probability of default of a client on the API server.
-    Args :
-    - id_client (int).
-    Returns :
-    - probability of default (float).
-    """
-    json_client = df_test_sample.loc[int(id_client)].to_json()
-    response = requests.get(HOST + '/predict', data=json_client).json()
-    return response["probability"]
+def get_prediction(id_client : int):
+	"""Gets the probability of default of a client on the API server.
+	Args : 
+	- id_client (int).
+	Returns :
+	- probability of default (float).
+	"""
+	json_client = df_test_sample.loc[int(id_client)].to_json()
+	response = requests.get(HOST + '/prediction', data=json_client)
+	proba_default = eval(response.content)["probability"]
+	return proba_default
 
 
 def rectangle_gauge(id, client_probability):
@@ -69,29 +72,19 @@ def rectangle_gauge(id, client_probability):
 	st.pyplot(fig) 
 
 
-@st.cache
-def fetch_data(id_client : int):
-    """Fetches the data of a client on the API server.
-    Args :
-    - id_client (int).
-    Returns :
-    - pandas dataframe with a single line.
-    """
-    return df_test_sample.loc[int(id_client)]
-	
 	
 @st.cache
-def fetch_shap(id_client : int):
-    """Fetches the SHAP values of a client on the API server.
-    Args :
-    - id_client (int).
-    Returns :
-    - pandas dataframe with 2 columns : features, SHAP values.
-    """
-    json_client = df_test_sample.loc[int(id_client)].to_json()
-    shap_json = requests.get(HOST + '/shap', data=json_client).json()
-    df_shap = pd.read_json(shap_json, orient='index')    # format: pandas.DataFrame
-    return df_shap
+def get_shap(id_client : int):
+	"""Gets the SHAP values of a client on the API server.
+	Args : 
+	- id_client (int).
+	Returns :
+	- pandas dataframe with 2 columns : features, SHAP values.
+	"""
+	json_client = df_test_sample.loc[int(id_client)].to_json()
+	response = requests.get(HOST + '/shap', data=json_client)
+	df_shap = pd.read_json(eval(response.content), orient='index')
+	return df_shap
 	
 
 def load_data(filename): 
@@ -101,7 +94,7 @@ def load_data(filename):
 	Returns :
 	- unserialized data.
 	"""
-	return joblib.load('./resources/'+ filename + '.joblib')
+	return joblib.load('./resources/'+ filename + '.joblib') 
 
 
 def kdeplot_in_common(feature, bw_method=0.4):
@@ -138,7 +131,7 @@ def kdeplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['EXT_SOURCE_2', 'EXT_SOURCE_3', 'EXT_SOURCE_1', 'AMT_ANNUITY']:
-		figure = joblib.load('./resources/figure_kde_distribution_' + feature + '_for_datascientist.joblib')
+		figure = joblib.load('./resources/figure_kde_distribution_' + feature + '_for_datascientist.joblib') 
 	else :
 		figure = kdeplot_in_common(feature)
 	y_max = plt.ylim()[1]
@@ -195,7 +188,7 @@ def barplot(feature):
 	- matplotlib plot via st.pyplot.
 	"""
 	if feature in ['ORGANIZATION_TYPE', 'CODE_GENDER']:
-		figure = joblib.load('./resources/figure_barplot_' + feature + '_for_datascientist.joblib')
+		figure = joblib.load('./resources/figure_barplot_' + feature + '_for_datascientist.joblib') 
 	else :
 		figure = barplot_in_common(feature)
 	x_client = one_client_pandas[feature].iloc[0]
@@ -349,18 +342,18 @@ def lineplot(feature):
 	st.caption(feature)
 	
 	
-def plot_selector(feature, dashboard='Advanced'):
+def plot_selector(feature, dashboard='Advanced Dashboard'):
 	"""Chooses between a KDE plot (for quantitative features) and a bar plot (for qualitative features)
 	Args :
 	- feature (string).
-	- dashboard (string) : 'Advanced' or 'Basic'.
+	- dashboard (string) : 'Advanced Dashboard' or 'Basic Dashboard'.
 	Returns :
 	- matplotlib plot via st.pyplot of the called function.	
 	"""
 	if feature in list_categorical_features:
 		barplot(feature)
 	else:
-		if dashboard == 'Advanced':
+		if dashboard == 'Advanced Dashboard':
 			kdeplot(feature)
 		else :
 			lineplot(feature)
@@ -400,7 +393,7 @@ list_quantitative_features = load_data('list_quantitative_features')
 image_HC = Image.open('./img/Home-Credit-logo.jpg')
 
 
-# Dashboard #########################################################################
+# Web page #########################################################################
 
 # Default settings. This must be the first Streamlit command used in your app, and must only be set once.
 st.set_page_config(page_title="Project 7 Dashboard", initial_sidebar_state="expanded")	
@@ -410,163 +403,205 @@ with st.sidebar:
 	st.image(image_HC, width=300)	
 	
 	# Dashboard selector
-	st.write('## Choose dashboard:')
-	dashboard_choice = st.radio('', ['Basic', 'Advanced'])
-	# if dashboard_choice == 'Advanced':
-	# elif dashboard_choice == 'Basic':
+	st.write('## Site Map:')
+	dashboard_choice = st.radio('', ['Homepage', 'Basic Dashboard', 'Advanced Dashboard', 'Exploratory Data Analysis'])
 	st.write('## ')	
 	st.write('## ')	
-
-	# Client selector
-	st.write('## Client ID:')	
-	id_client = st.text_input("Enter client ID", value="324806")
-	st.caption("Example of client predicted negative (no default) : 324806")
-	st.caption("Example of client predicted positive (credit default) : 318063") 
-	st.caption(" ") 
 	
-	# Button random
-	if st.button("Select random client"):
-		clients = [str(id) for id in df_test_sample.index]
-		size = len(clients)
-		client_index = randint(0, size-1)
-		id_client = clients[client_index]	 
+	if dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
+		# Client selector
+		st.write('## Client ID:')	
+		id_client = st.text_input("Enter client ID", value="324806")
+		st.caption("Example of client predicted negative (no default) : 324806")
+		st.caption("Example of client predicted positive (credit default) : 318063") 
+		st.caption(" ") 
+		# Button random
+		if st.button("Select random client"):
+			clients = [str(id) for id in df_test_sample.index]
+			size = len(clients)
+			client_index = randint(0, size-1)
+			id_client = clients[client_index]	 
+	elif dashboard_choice == 'Exploratory Data Analysis':   
+		st.write('## Choose data:')
+		data_choice = st.radio('', ['Overview', 'application_train.csv', 'application_test.csv', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv', ])
+
+
+
+
+
+# Homepage #######################################################
+if dashboard_choice == 'Homepage':
+	st.title("Home Credit Default Risk Prediction")  
+	
+	"This site contains an interactive dashboard to explain to the bank's customers the reason of approval or refusal of their credit applications."
+	" "
+	" "
+	"The bullet points of the prediction model are:"
+	"- The data used for model training contain the entire set of tables available for the [Home Credit data repository at Kaggle.](https://www.kaggle.com/c/home-credit-default-risk/data)"
+	"- The prediction model used to determine the probability of default of a credit application is based on the **LGBM algorithm** (Light Gradient Boosting Machine)."
+	"- This model has been optimized with the intent to **minimize the buisness cost function** : each defaulting client costs 10 times the gain of a non-defaulting client."
+	f"- The optimization  has lead to an **optimum threshold for the probability of default : {100*optimum_threshold()}%**. In other words, customer with a probability of default below {100*optimum_threshold()}% get their credit accepted, and refused if above {100*optimum_threshold()}%."
+	" "
+	" "
+	"The dashboard is available in 2 versions:"
+	"- A **basic** version, to be used by customer relation management."
+	"- An **advanced**, more detailed version for deeper understanding of the data."
+	"An **exploratory data analysis** is also available for the raw data used for the LGBM model training. (penser à mettre le schéma Kaggle)"
+	" "
 	
 
-# Convert id_client into a dataframe
-one_client_pandas = df_test_sample[df_test_sample.index == int(id_client)]
 
+# Basic and Advanced Dashboards #######################################################
+elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 
-# Main title of the dashboard
-st.title(f'Default Risk Prediction')  
-st.title(f'for client {id_client}')
+	# Main title of the dashboard
+	st.title(f'Default Risk Prediction')  
+	st.title(f'for client {id_client}')
 
+	# Convert id_client into a dataframe
+	one_client_pandas = df_test_sample[df_test_sample.index == int(id_client)]
 
-# Result of credit application
-"---------------------------" 
-st.header('Result of credit application') 
-probability = fetch_proba_default(id_client)
-if probability < optimum_threshold(): 
-	st.success(f"  \n __CREDIT ACCEPTED__  \n  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (lower than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
-else:
-	st.error(f"__CREDIT REFUSED__  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (higher than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
-rectangle_gauge(id_client, probability)
-
-
-if dashboard_choice == 'Advanced':
-	# Position of the client vs other clients
+	# Result of credit application
 	"---------------------------" 
-	st.header('Ranking of the client compared to other clients')
-
-	figure_kde_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_kde_distribution_proba_default_for_datascientist.joblib')
-	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,3), arrowprops=dict(facecolor='k', arrowstyle='simple'))
-	st.pyplot(figure_kde_distribution_proba_default_for_datascientist)  
-
-	figure_hist_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_hist_distribution_proba_default_for_datascientist.joblib')
-	plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,1000), arrowprops=dict(facecolor='k', arrowstyle='simple'))
-	st.pyplot(figure_hist_distribution_proba_default_for_datascientist)  
+	st.header('Result of credit application') 
+	probability = get_prediction(id_client)
+	if probability < optimum_threshold(): 
+		st.success(f"  \n __CREDIT ACCEPTED__  \n  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (lower than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
+	else:
+		st.error(f"__CREDIT REFUSED__  \nThe probability of default of the applied credit is __{round(100*probability,1)}__% (higher than the threshold of {100*optimum_threshold()}% for obtaining the credit).  \n ")
+	rectangle_gauge(id_client, probability)
 
 
-# Feature Importance
-"---------------------------" 
-# By Feature permutation
-st.header('Global Feature Importance:')
-st.subheader('By the Feature Permutation method')
-figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib')
-st.pyplot(figure_features_permutation_importances_for_datascientist)
-st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
-with st.expander("See definitions of the features", expanded=False):
-	pass   # to be completed   # en fait ce serait mieux que les définitions soient passées par un graphe plotly
+	if dashboard_choice == 'Advanced Dashboard':
+		# Position of the client vs other clients
+		"---------------------------" 
+		st.header('Ranking of the client compared to other clients')
 
-# By SHAP	
-if dashboard_choice == 'Advanced':
-	st.subheader('By a SHAP summary plot')
-	st.pyplot(joblib.load('./resources/figure_summary_plot_shap_for_datascientist.joblib'))
-	st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
-	'The red zones correspond to larger values for the features.  \n'
-	'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
-	'As can be seen, this plot also informs on the distribution of the SHAP values for each feature.')
+		figure_kde_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_kde_distribution_proba_default_for_datascientist.joblib') 
+		plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,3), arrowprops=dict(facecolor='k', arrowstyle='simple'))
+		st.pyplot(figure_kde_distribution_proba_default_for_datascientist)  
+
+		figure_hist_distribution_proba_default_for_datascientist = joblib.load('./resources/figure_hist_distribution_proba_default_for_datascientist.joblib') 
+		plt.annotate(text=f"Client {id_client}", xy=(probability,0), xytext=(probability,1000), arrowprops=dict(facecolor='k', arrowstyle='simple'))
+		st.pyplot(figure_hist_distribution_proba_default_for_datascientist)  
 
 
+	# Feature Importance
+	"---------------------------" 
+	# By Feature permutation
+	st.header('Global Feature Importance:')
+	st.subheader('By the Feature Permutation method')
+	figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib') 
+	st.pyplot(figure_features_permutation_importances_for_datascientist)  
+	st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
+	with st.expander("See definitions of the features", expanded=False):
+		pass   # to be completed   # en fait ce serait mieux que les définitions soient passées par un graphe plotly
 
-# Positioning of the client with comparison to other clients in the 6 main features
-"---------------------------" 
-st.header('Positioning of the client with comparison to other clients in the 6 main features')
+	# By SHAP	
+	if dashboard_choice == 'Advanced Dashboard':
+		st.subheader('By a SHAP summary plot')
+		st.pyplot(joblib.load('./resources/figure_summary_plot_shap_for_datascientist.joblib'))
+		st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
+		'The red zones correspond to larger values for the features.  \n'
+		'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
+		'As can be seen, this plot also informs on the distribution of the SHAP values for each feature.')
 
-# Basic dashboard
-st.subheader('Observed probability of default as a function of a feature')
-left_column, middle_column, right_column = st.columns([1, 1, 1])
-with left_column:
-	plot_selector('EXT_SOURCE_1', dashboard='Basic') 
-with middle_column:
-	plot_selector('EXT_SOURCE_2', dashboard='Basic') 
-with right_column:
-	plot_selector('EXT_SOURCE_3', dashboard='Basic')
-with left_column:
-	plot_selector('AMT_ANNUITY', dashboard='Basic')
-with middle_column:
-	plot_selector('ORGANIZATION_TYPE', dashboard='Basic')	
-with right_column:
-	plot_selector('CODE_GENDER', dashboard='Basic')
-	
-if dashboard_choice == 'Advanced':
-	st.subheader('Distribution of a feature, based on the clients true class')
+
+
+	# Positioning of the client with comparison to other clients in the 6 main features
+	"---------------------------" 
+	st.header('Positioning of the client with comparison to other clients in the 6 main features')
+
+	# Basic dashboard
+	st.subheader('Observed probability of default as a function of a feature')
+	left_column, middle_column, right_column = st.columns([1, 1, 1])
+	with left_column:
+		plot_selector('EXT_SOURCE_1', dashboard='Basic Dashboard') 
+	with middle_column:
+		plot_selector('EXT_SOURCE_2', dashboard='Basic Dashboard') 
+	with right_column:
+		plot_selector('EXT_SOURCE_3', dashboard='Basic Dashboard')
+	with left_column:
+		plot_selector('AMT_ANNUITY', dashboard='Basic Dashboard')
+	with middle_column:
+		plot_selector('ORGANIZATION_TYPE', dashboard='Basic Dashboard')	
+	with right_column:
+		plot_selector('CODE_GENDER', dashboard='Basic Dashboard')
+
+	# Advanced dashboard	
+	if dashboard_choice == 'Advanced Dashboard':
+		st.subheader('Distribution of a feature, based on the clients true class')
+		left_column, right_column = st.columns(2)
+		with left_column:
+			plot_selector('EXT_SOURCE_1') 
+			plot_selector('EXT_SOURCE_2') 
+		with right_column:
+			plot_selector('EXT_SOURCE_3')
+			plot_selector('AMT_ANNUITY')
+
+
+	# Positioning of the client with comparison to other clients (choice of feature)
+	"---------------------------" 
+	st.header('Positioning of the client with comparison to other clients (choice of feature)')
+	sorted_options = sorted(list(df_test_sample.columns))
+	selected_feature = st.selectbox(f'Choose a feature among {len(sorted_options)}', options=sorted_options, index=sorted_options.index('OCCUPATION_TYPE'))
+	st.caption("Rajouter ici la définition de la feature")
+
+	# Basic dashboard
+	plot_selector(selected_feature, dashboard='Basic Dashboard')
+
+	# Advanced dashboard	
+	if dashboard_choice == 'Advanced Dashboard':
+		plot_selector(selected_feature)
+
+
+
+	# Positioning of the client with comparison to other clients (choice of two features)
+	"---------------------------" 
+	st.header('Positioning of the client with comparison to other clients (choice of two features)')
 	left_column, right_column = st.columns(2)
 	with left_column:
-		plot_selector('EXT_SOURCE_1') 
-		plot_selector('EXT_SOURCE_2') 
+		selected_feature1 = st.selectbox('Choose feature 1', options=list_quantitative_features, index=list_quantitative_features.index('EXT_SOURCE_1'))
 	with right_column:
-		plot_selector('EXT_SOURCE_3')
-		plot_selector('AMT_ANNUITY')
+		selected_feature2 = st.selectbox('Choose feature 2', options=list_quantitative_features, index=list_quantitative_features.index('EXT_SOURCE_2'))
+	contourplot(selected_feature1, selected_feature2)
+	st.caption("Rajouter ici la définition des features") 
 
 
-# Positioning of the client with comparison to other clients (choice of feature)
-"---------------------------" 
-st.header('Positioning of the client with comparison to other clients (choice of feature)')
-sorted_options = sorted(list(df_test_sample.columns))
-selected_feature = st.selectbox(f'Choose a feature among {len(sorted_options)}', options=sorted_options, index=sorted_options.index('OCCUPATION_TYPE'))
-st.caption("Rajouter ici la définition de la feature")
-
-plot_selector(selected_feature, dashboard='Basic')
-
-if dashboard_choice == 'Advanced':
-	plot_selector(selected_feature)
+	# Local SHAP
+	"---------------------------" 
+	st.header('Impact of features on prediction of default')
+	df_shap = get_shap(id_client)
+	shap_barplot(df_shap)
 
 
-
-# Positioning of the client with comparison to other clients (choice of two features)
-"---------------------------" 
-st.header('Positioning of the client with comparison to other clients (choice of two features)')
-left_column, right_column = st.columns(2)
-with left_column:
-	selected_feature1 = st.selectbox('Choose feature 1', options=list_quantitative_features, index=list_quantitative_features.index('EXT_SOURCE_1'))
-with right_column:
-	selected_feature2 = st.selectbox('Choose feature 2', options=list_quantitative_features, index=list_quantitative_features.index('EXT_SOURCE_2'))
-contourplot(selected_feature1, selected_feature2)
-st.caption("Rajouter ici la définition des features") 
+	# Display client data
+	"---------------------------"  
+	st.header(f'Data for client {id_client}')
+	with st.expander("See data", expanded=False):
+		st.dataframe(one_client_pandas.T) 
 
 
-
-
-	
-# Local SHAP
-"---------------------------" 
-st.header('Impact of features on prediction of default')
-df_shap = fetch_shap(id_client)
-shap_barplot(df_shap)
-
-
-# Display client data
-"---------------------------"  
-st.header(f'Data for client {id_client}')
-with st.expander("See data", expanded=False):
-	st.dataframe(one_client_pandas.T) 
-
-
-# Logs and debugs
-if DEBUG:
+	# Logs and debugs
+	if DEBUG:
+		"---------------------------"
+		st.header("Logs and debugs")
+		st.write("optimum_threshold :", optimum_threshold())
+		
+	# Final line
 	"---------------------------"
-	st.header("Logs and debugs")
-	st.write("optimum_threshold :", optimum_threshold())
+
+
+elif dashboard_choice == 'Exploratory Data Analysis':
+
+	if data_choice == 'Overview':
+		# mettre schéma
+		pass
 	
-# Final line
-"---------------------------"
+	elif data_choice == 'bureau_balance.csv':
+		"The exploratory data analysis opens in a new window."
+		nom_rapport = 'testcomp2 - 100000 samples (out of 27299925).joblib'
+		path = './resources/eda/' + nom_rapport
+		rapport = joblib.load(path) 
+		rapport.show_browser()
+
