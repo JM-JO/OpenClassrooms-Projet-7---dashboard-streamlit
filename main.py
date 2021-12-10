@@ -598,6 +598,7 @@ elif dashboard_choice == 'Exploratory Data Analysis':
 		"hello overview"
 	
 	elif data_choice == 'bureau_balance.csv':
-		with open('./resources/eda/test.html', 'r') as f:
-			rapport = f.read()
-		st.components.v1.html(rapport, width=1500, height=800, scrolling=True)
+		# with open('./resources/eda/test.html', 'r') as f:
+			# rapport = f.read()
+		report = joblib.load('./resources/eda/test12 - 100000 samples (out of 27299925).joblib')
+		st.components.v1.html(report, width=1200, height=800, scrolling=True)
