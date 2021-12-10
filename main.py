@@ -24,7 +24,7 @@ HOST = 'http://127.0.0.1:8000'     # developement on local server
 
 # Functions #########################################################################
 
-@st.cache
+# @st.cache
 def optimum_threshold():
 	"""Gets the optimum threshold of the buisness cost function on the API server.
 	Args :
@@ -36,7 +36,7 @@ def optimum_threshold():
 	return round(float(response.content),3)
 	
 	
-@st.cache
+# @st.cache
 def get_prediction(id_client : int):
 	"""Gets the probability of default of a client on the API server.
 	Args : 
@@ -72,8 +72,7 @@ def rectangle_gauge(id, client_probability):
 	st.pyplot(fig) 
 
 
-	
-@st.cache
+# @st.cache
 def get_shap(id_client : int):
 	"""Gets the SHAP values of a client on the API server.
 	Args : 
@@ -396,7 +395,7 @@ image_HC = Image.open('./img/Home-Credit-logo.jpg')
 # Web page #########################################################################
 
 # Default settings. This must be the first Streamlit command used in your app, and must only be set once.
-st.set_page_config(page_title="Project 7 Dashboard", initial_sidebar_state="expanded")	
+st.set_page_config(page_title="Project 7 Dashboard", initial_sidebar_state="expanded", layout="wide")	
 
 # Side bar
 with st.sidebar:
@@ -596,12 +595,9 @@ elif dashboard_choice == 'Exploratory Data Analysis':
 
 	if data_choice == 'Overview':
 		# mettre schéma
-		pass
+		"hello overview"
 	
 	elif data_choice == 'bureau_balance.csv':
-		"The exploratory data analysis opens in a new window."
-		nom_rapport = 'testcomp2 - 100000 samples (out of 27299925).joblib'
-		path = './resources/eda/' + nom_rapport
-		rapport = joblib.load(path) 
-		rapport.show_browser()
-
+		with open('./resources/eda/test.html', 'r') as f:
+			rapport = f.read()
+		st.components.v1.html(rapport, width=1500, height=800, scrolling=True)
