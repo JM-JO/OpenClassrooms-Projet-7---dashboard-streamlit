@@ -14,11 +14,11 @@ from random import randint
 
 
 # Constants #########################################################################
-DEBUG = True
+DEBUG = False
 
 # Adress of the API server :
-HOST = 'http://127.0.0.1:8000'     # developement on local server
-# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+# HOST = 'http://127.0.0.1:8000'     # developement on local server
+HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
 
 
@@ -139,7 +139,7 @@ def kdeplot(feature):
 		plt.axvline(x=x_client, ymin=-1e10, ymax=1e10, c='k', ls='dashed', lw=2)
 		plt.annotate(text=f" Client {id_client}\n  {round(x_client, 3)}", xy=(x_client,y_max*0.8))
 	st.pyplot(figure)   
-	st.caption(feature)
+	st.caption(feature + ": " + feature_description(feature))
 	
 
 def barplot_in_common(feature):
@@ -191,7 +191,7 @@ def barplot(feature):
 	plt.axvline(x=optimum_threshold(), ymin=-1e10, ymax=1e10, c='darkorange', ls='dashed', lw=1)   # line for the optimum_threshold
 	plt.text(s=f" Client {id_client}: {dict_categorical_features[feature][x_client]} ", x=0.5, y=plt.ylim()[1]*0.3) 
 	st.pyplot(figure)   
-	st.caption(feature)	
+	st.caption(feature + ": " + feature_description(feature))
 	
 
 def contourplot_in_common(feature1, feature2):
@@ -265,7 +265,9 @@ def contourplot(feature1, feature2):
 		plt.axvline(x=x_client, ymin=-1e10, ymax=1e10, c='k', ls='dashed', lw=1)
 		plt.axhline(y=y_client, xmin=-1e10, xmax=1e10, c='k', ls='dashed', lw=1)
 		# if I want to interpolate data : https://stackoverflow.com/questions/5666056/matplotlib-extracting-data-from-contour-lines
-	st.pyplot(figure)   
+	st.pyplot(figure)
+	st.caption(feature1 + ": " + feature_description(feature1))
+	st.caption(feature2 + ": " + feature_description(feature2))
 
 
 def lineplot_in_common(feature):
@@ -335,7 +337,7 @@ def lineplot(feature):
 		plt.axhline(y=optimum_threshold(), xmin=-1e10, xmax=1e10, c='darkorange', ls='dashed', lw=1)   # line for the optimum_threshold
 		plt.annotate(text=f" Client {id_client}\n  {round(x_client, 3)}", xy=(x_client,y_max*0.9))
 	st.pyplot(figure)   
-	st.caption(feature)
+	st.caption(feature + ": " + feature_description(feature))
 	
 	
 def plot_selector(feature, dashboard='Advanced Dashboard'):
@@ -374,7 +376,10 @@ def shap_barplot(df_shap):
 	plt.ylabel('Features (top 5 contributors, both ways)')
 	fig.suptitle('Impact on model output (credit default)', y=0.92, size=14)
 	st.pyplot(fig)   
-	st.caption("Horizontal scale : contribution to log odds of credit default.") 
+	st.caption("Horizontal scale : contribution to log odds of credit default.")
+	with st.expander("Features description", expanded=False):
+		for feature in list(df['feature']):
+			st.caption(feature + ": " + feature_description(feature))
 	
 
 def display_EDA(file_name):
@@ -388,24 +393,33 @@ def display_EDA(file_name):
 	st.components.v1.html(report, width=1200, height=800, scrolling=True)
 
 
-# Load data #########################################################################
-
-X_split_valid = load_data('X_split_valid', path='./src/')		# dataset used to plot features - sample of clients from the Kaggle train set
-y_split_valid = load_data('y_split_valid', path='./src/')		# dataset used to plot features - sample of clients from the Kaggle train set
-df_test_sample = load_data('df_test_sample', path='./src/')		# sample of customers from the Kaggle test set
-list_categorical_features = load_data('list_categorical_features')
-dict_categorical_features = load_data('dict_categorical_features')
-list_quantitative_features = load_data('list_quantitative_features')
-image_HC = Image.open('./img/Home-Credit-logo.jpg')
+def feature_description(feature):
+	"""Returns a description of the feature, taken from the table HomeCredit_columns_description.csv.
+	Args : 
+	- feature (string).
+	Returns :
+	- its description (string.)
+	"""
+	if feature in list(df_description.Row):
+		description = df_description[df_description.Row == feature]['Description'].iloc[0]
+	else:
+		description = "Description not available"
+	return description
 
 
 # Web page #########################################################################
 
+# Load data 
+df_test_sample = load_data('df_test_sample', path='./src/')		# sample of customers from the Kaggle test set
+
+
 # Default settings. This must be the first Streamlit command used in your app, and must only be set once.
 st.set_page_config(page_title="Project 7 Dashboard", initial_sidebar_state="expanded", layout="wide")	
 
+
 # Side bar
 with st.sidebar:
+	image_HC = Image.open('./img/Home-Credit-logo.jpg')
 	st.image(image_HC, width=300)	
 	
 	# Dashboard selector
@@ -429,17 +443,16 @@ with st.sidebar:
 			id_client = clients[client_index]	 
 	elif dashboard_choice == 'Exploratory Data Analysis':   
 		st.write('## Choose data:')
-		data_choice = st.radio('', ['Overview', 'application_train.csv', 'application_test.csv', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv', ])
-
-
-
+		data_choice = st.radio('', ['Overview', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv', 'application_train.csv', 'application_test.csv'])
 
 
 # Homepage #######################################################
 if dashboard_choice == 'Homepage':
 	st.title("Home Credit Default Risk Prediction")  
-	
-	"This site contains an interactive dashboard to explain to the bank's customers the reason of approval or refusal of their credit applications."
+	" "
+	" "
+	"This site contains an **interactive dashboard** to explain to the bank's customers the reason of **approval or refusal of their credit applications.**"
+	"Probability of credit default has been calculated by a prediction model based on machine learning."
 	" "
 	" "
 	"The bullet points of the prediction model are:"
@@ -452,13 +465,21 @@ if dashboard_choice == 'Homepage':
 	"The dashboard is available in 2 versions:"
 	"- A **basic** version, to be used by customer relation management."
 	"- An **advanced**, more detailed version for deeper understanding of the data."
-	"An **exploratory data analysis** is also available for the raw data used for the LGBM model training. (penser à mettre le schéma Kaggle)"
+	"An **exploratory data analysis** is also available for the raw data used for the LGBM model training."
 	" "
 	
 
-
 # Basic and Advanced Dashboards #######################################################
 elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
+	# Load data 
+	X_split_valid = load_data('X_split_valid', path='./src/')		# dataset used to plot features - sample of clients from the Kaggle train set
+	y_split_valid = load_data('y_split_valid', path='./src/')		# dataset used to plot features - sample of clients from the Kaggle train set
+	list_categorical_features = load_data('list_categorical_features')
+	dict_categorical_features = load_data('dict_categorical_features')
+	list_quantitative_features = load_data('list_quantitative_features')
+	df_description = load_data('df_description')
+	list_features_permutation_importances = load_data('list_features_permutation_importances')
+	list_summary_plot_shap = load_data('list_summary_plot_shap')
 
 	# Main title of the dashboard
 	st.title(f'Default Risk Prediction')  
@@ -500,17 +521,22 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	figure_features_permutation_importances_for_datascientist = joblib.load('./resources/figure_features_permutation_importances_for_datascientist.joblib') 
 	st.pyplot(figure_features_permutation_importances_for_datascientist)  
 	st.caption("For each feature, it is the average change of the predicted score after randomisation of the feature values in the dataset.")
-	with st.expander("See definitions of the features", expanded=False):
-		pass   # to be completed   # en fait ce serait mieux que les définitions soient passées par un graphe plotly
+	with st.expander("Features description", expanded=False):
+		for feature in list_features_permutation_importances:
+			st.caption(feature + ": " + feature_description(feature))
 
 	# By SHAP	
 	if dashboard_choice == 'Advanced Dashboard':
 		st.subheader('By a SHAP summary plot')
 		st.pyplot(joblib.load('./resources/figure_summary_plot_shap_for_datascientist.joblib'))
-		st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
-		'The red zones correspond to larger values for the features.  \n'
-		'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
-		'As can be seen, this plot also informs on the distribution of the SHAP values for each feature.')
+		with st.expander("Legend", expanded=False):
+			st.caption('For each feature, the higher the SHAP value, the higher is the contribution to an increase of the calculated probability of default. '
+			'The red zones correspond to larger values for the features.  \n'
+			'For example, for the feature EXT_SOURCE_3, a higher value (in red) means a negative SHAP value, i.e. a contribution to the decrease of the probability of default.  \n'
+			'As can be seen, this plot also informs on the distribution of the SHAP values for each feature.')
+		with st.expander("Features description", expanded=False):
+			for feature in list_summary_plot_shap:
+				st.caption(feature + ": " + feature_description(feature))
 
 
 
@@ -551,13 +577,12 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	st.header('Positioning of the client with comparison to other clients (choice of feature)')
 	sorted_options = sorted(list(df_test_sample.columns))
 	selected_feature = st.selectbox(f'Choose a feature among {len(sorted_options)}', options=sorted_options, index=sorted_options.index('OCCUPATION_TYPE'))
-	st.caption("Rajouter ici la définition de la feature")
-
+	
 	# Basic dashboard
 	plot_selector(selected_feature, dashboard='Basic Dashboard')
 
 	# Advanced dashboard	
-	if dashboard_choice == 'Advanced Dashboard':
+	if dashboard_choice == 'Advanced Dashboard' and selected_feature in list_quantitative_features:
 		plot_selector(selected_feature)
 
 
@@ -571,7 +596,6 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	with right_column:
 		selected_feature2 = st.selectbox('Choose feature 2', options=list_quantitative_features, index=list_quantitative_features.index('EXT_SOURCE_2'))
 	contourplot(selected_feature1, selected_feature2)
-	st.caption("Rajouter ici la définition des features") 
 
 
 	# Local SHAP
@@ -585,7 +609,17 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	"---------------------------"  
 	st.header(f'Data for client {id_client}')
 	with st.expander("See data", expanded=False):
-		st.dataframe(one_client_pandas.T) 
+		for feature in list_categorical_features:
+			encoded_feature = one_client_pandas[feature].iloc[0]
+			decoded_feature = dict_categorical_features[feature][encoded_feature]
+			one_client_pandas[feature].iloc[0] = decoded_feature
+		one_client_pandas = one_client_pandas.append(pd.Series(), ignore_index=True)
+		for feature in one_client_pandas.columns:
+			one_client_pandas[feature].iloc[1] = feature_description(feature)
+		
+		one_client_pandas = one_client_pandas.T
+		one_client_pandas.columns = ['Value', 'Description']
+		st.components.v1.html(one_client_pandas.to_html(na_rep='Value not available', justify='left'), width=1200, height=400, scrolling=True)
 
 
 	# Logs and debugs
@@ -598,19 +632,17 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	"---------------------------"
 
 
+# Exploratory Data Analysis #######################################################
 elif dashboard_choice == 'Exploratory Data Analysis':
 
-
-
-
 	if data_choice == 'Overview':
-		# mettre schéma
-		"hello overview"
+		image_data = Image.open('./img/data_summary.png')
+		st.image(image_data)
+	elif data_choice in ['application_train.csv', 'application_test.csv']:
+		"We are sorry, but currently we cannot manage Dataprep files that large (Streamlit issue)."
+		"We are working on a solution."
 	else: 
 		display_EDA(data_choice + ' - dataprep')
 
 
 
-	# elif data_choice == 'bureau_balance.csv':
-		# report = joblib.load('./resources/eda/bureau_balance.csv - 1000000 samples (out of 27299925).joblib')
-		# st.components.v1.html(report, width=1200, height=800, scrolling=True)
