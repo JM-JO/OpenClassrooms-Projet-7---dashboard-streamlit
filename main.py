@@ -9,7 +9,6 @@ from matplotlib.patches import Rectangle, FancyArrowPatch
 from matplotlib.cm import RdYlGn
 from PIL import Image
 from random import randint
-# from dataprep.eda import create_report
 
 
 
@@ -17,8 +16,8 @@ from random import randint
 DEBUG = False
 
 # Adress of the API server :
-# HOST = 'http://127.0.0.1:8000'     # developement on local server
-HOST = 'https://project7-api-ml.herokuapp.com'     # production server
+HOST = 'http://127.0.0.1:8000'     # developement on local server
+# HOST = 'https://project7-api-ml.herokuapp.com'     # production server
 
 
 
@@ -443,7 +442,8 @@ with st.sidebar:
 			id_client = clients[client_index]	 
 	elif dashboard_choice == 'Exploratory Data Analysis':   
 		st.write('## Choose data:')
-		data_choice = st.radio('', ['Overview', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv', 'application_train.csv', 'application_test.csv'])
+		# data_choice = st.radio('', ['Overview', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv', 'application_train.csv', 'application_test.csv'])
+		data_choice = st.radio('', ['Overview', 'application_train.csv - part 1', 'application_train.csv - part 2', 'application_train.csv - part 3', 'bureau.csv', 'bureau_balance.csv', 'POS_CASH_balance.csv', 'credit_card_balance.csv', 'previous_application.csv', 'installments_payments.csv'])
 
 
 # Homepage #######################################################
@@ -482,8 +482,7 @@ elif dashboard_choice in ['Basic Dashboard', 'Advanced Dashboard']:
 	list_summary_plot_shap = load_data('list_summary_plot_shap')
 
 	# Main title of the dashboard
-	st.title(f'Default Risk Prediction')  
-	st.title(f'for client {id_client}')
+	st.title(f'Default Risk Prediction for client {id_client}')
 
 	# Convert id_client into a dataframe
 	one_client_pandas = df_test_sample[df_test_sample.index == int(id_client)]
@@ -638,9 +637,6 @@ elif dashboard_choice == 'Exploratory Data Analysis':
 	if data_choice == 'Overview':
 		image_data = Image.open('./img/data_summary.png')
 		st.image(image_data)
-	elif data_choice in ['application_train.csv', 'application_test.csv']:
-		"We are sorry, but currently we cannot manage Dataprep files that large (Streamlit issue)."
-		"We are working on a solution."
 	else: 
 		display_EDA(data_choice + ' - dataprep')
 
