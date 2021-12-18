@@ -6,7 +6,7 @@ Please be patient when you try to reach the website, the server wake-up takes ab
 
 
 
-This repository is part of a three-part project divided into 3 repositories :
-1)
-2)
-3)
+This repository is part of a three-part project divided into 3 repositories :  
+1)  
+2)  
+3)  
